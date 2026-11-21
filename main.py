@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import json
 import os
+import asyncio
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from google import genai
@@ -91,16 +92,23 @@ class FortuneModal(discord.ui.Modal, title="🔮 กรอกข้อมูล�
             last_error = None
 
             for model_name in models_to_try:
-                try:
-                    response = ai_client.models.generate_content(
-                        model=model_name,
-                        contents=prompt,
-                    )
-                    if response and response.text:
+                for attempt in range(3):
+                    try:
+                        response = ai_client.models.generate_content(
+                            model=model_name,
+                            contents=prompt,
+                        )
+                        if response and response.text:
+                            break
+                    except Exception as model_err:
+                        last_error = model_err
+                        err_str = str(model_err)
+                        if ("503" in err_str or "UNAVAILABLE" in err_str) and attempt < 2:
+                            await asyncio.sleep(2.5)
+                            continue
                         break
-                except Exception as model_err:
-                    last_error = model_err
-                    continue
+                if response and response.text:
+                    break
 
             if not response or not response.text:
                 raise last_error
@@ -140,6 +148,12 @@ class FortuneModal(discord.ui.Modal, title="🔮 กรอกข้อมูล�
                 await interaction.followup.send(
                     "❌ **API Key นี้ถูกปฏิเสธสิทธิ์ (403 PERMISSION_DENIED)**\n"
                     "โปรเจกต์ใน Google AI Studio นี้ไม่มีโควตา Free Tier กรุณาเข้าไปที่ [Google AI Studio](https://aistudio.google.com/app/apikey) กดสร้าง API Key ใน **New Project** อันใหม่ แล้วนำมาเปลี่ยนใน `GEMINI_API_KEY` ครับ",
+                    ephemeral=True
+                )
+            elif "503" in err_msg or "UNAVAILABLE" in err_msg:
+                await interaction.followup.send(
+                    "⏳ **เซิร์ฟเวอร์ AI กำลังมีผู้ใช้งานหนาแน่นชั่วคราว (503 UNAVAILABLE)**\n"
+                    "ระบบลองเรียกซ้ำให้แล้วแต่ยังไม่ว่าง กรุณารอสัก 10-15 วินาทีแล้วกดปุ่ม **🔮 ดูดวงกับ AI** ลองใหม่อีกครั้งครับ",
                     ephemeral=True
                 )
             else:
