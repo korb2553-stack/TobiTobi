@@ -86,7 +86,7 @@ class FortuneModal(discord.ui.Modal, title="🔮 กรอกข้อมูล�
         """
 
         try:
-            models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+            models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash"]
             response = None
             last_error = None
 
